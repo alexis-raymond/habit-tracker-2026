@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Habit Tracker 2026</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="logo">Habit Tracker</h1>
+                <div class="header-actions">
+                    <button id="theme-toggle" class="icon-btn" aria-label="Toggle dark mode">
+                        <span class="theme-icon">🌙</span>
+                    </button>
+                    <div class="view-toggle">
+                        <button class="view-btn active" data-view="today">Today</button>
+                        <button class="view-btn" data-view="routines">Routines</button>
+                        <button class="view-btn" data-view="calendar">Calendar</button>
+                        <button class="view-btn" data-view="stats">Stats</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Today View -->
+        <main class="main-content">
+            <div id="today-view" class="view active">
+                <div class="date-header">
+                    <div class="date-navigation">
+                        <button id="prev-day" class="nav-btn-small">←</button>
+                        <h2 id="current-date"></h2>
+                        <button id="next-day" class="nav-btn-small">→</button>
+                    </div>
+                    <p id="streak-info"></p>
+                </div>
+                <div id="habits-list" class="habits-list">
+                    <!-- Habits will be dynamically inserted here -->
+                </div>
+            </div>
+
+            <!-- Routines View -->
+            <div id="routines-view" class="view">
+                <div class="routines-header">
+                    <h2>Your Routines</h2>
+                    <p class="subtitle">Grouped habits that help you build consistent patterns</p>
+                </div>
+                <div id="routines-list" class="routines-list">
+                    <!-- Routines will be dynamically inserted here -->
+                </div>
+            </div>
+
+            <!-- Calendar View -->
+            <div id="calendar-view" class="view">
+                <div class="calendar-controls">
+                    <button id="prev-period" class="nav-btn">←</button>
+                    <div class="period-selector">
+                        <select id="calendar-mode">
+                            <option value="week">Week</option>
+                            <option value="month" selected>Month</option>
+                            <option value="year">Year</option>
+                        </select>
+                        <button id="today-btn" class="today-btn">Today</button>
+                    </div>
+                    <button id="next-period" class="nav-btn">→</button>
+                </div>
+
+                <div class="habit-selector">
+                    <select id="selected-habit">
+                        <option value="">Select a habit to view</option>
+                        <option value="__all__">🔥 All Habits (Heat Map)</option>
+                        <option value="__routine__morning">☀️ Morning Routine</option>
+                        <option value="__routine__evening">🌙 Evening Routine</option>
+                        <option value="__routine__connections">❤️ Connections</option>
+                    </select>
+                </div>
+
+                <div id="calendar-display" class="calendar-display">
+                    <!-- Calendar will be dynamically inserted here -->
+                </div>
+            </div>
+
+            <!-- Stats View -->
+            <div id="stats-view" class="view">
+                <div class="stats-header">
+                    <h2>Your Progress</h2>
+                    <p class="subtitle">Insights and achievements from your habit journey</p>
+                </div>
+                <div id="stats-content" class="stats-content">
+                    <!-- Stats will be dynamically inserted here -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Past Day Edit Modal -->
+    <div id="edit-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-date-title"></h3>
+                <button id="close-modal" class="close-btn">×</button>
+            </div>
+            <div id="modal-habits-list" class="modal-habits-list">
+                <!-- Past day habits will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
