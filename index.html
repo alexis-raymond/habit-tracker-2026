@@ -5,8 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Habit Tracker 2026</title>
     <link rel="stylesheet" href="styles.css">
+    <!-- Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+    <!-- Auth Modal -->
+    <div id="auth-modal" class="modal auth-modal active">
+        <div class="modal-content auth-content">
+            <div class="auth-header">
+                <h2>Habit Tracker 2026</h2>
+                <p class="auth-subtitle">Sign in to sync your habits across all devices</p>
+            </div>
+
+            <div id="auth-form">
+                <input type="email" id="auth-email" placeholder="Email" class="auth-input" autocomplete="email">
+                <input type="password" id="auth-password" placeholder="Password" class="auth-input" autocomplete="current-password">
+
+                <button id="signin-btn" class="auth-btn">Sign In</button>
+                <button id="signup-btn" class="auth-btn-secondary">Create Account</button>
+
+                <p id="auth-error" class="auth-error" style="display: none;"></p>
+                <p id="auth-success" class="auth-success" style="display: none;"></p>
+            </div>
+
+            <p class="auth-note">Your data will be securely stored and synced across all your devices</p>
+        </div>
+    </div>
+
     <div class="app-container">
         <!-- Header -->
         <header class="header">
@@ -15,6 +40,9 @@
                 <div class="header-actions">
                     <button id="theme-toggle" class="icon-btn" aria-label="Toggle dark mode">
                         <span class="theme-icon">🌙</span>
+                    </button>
+                    <button id="signout-btn" class="icon-btn" aria-label="Sign out" style="display: none;">
+                        <span>🚪</span>
                     </button>
                     <div class="view-toggle">
                         <button class="view-btn active" data-view="today">Today</button>
@@ -109,6 +137,7 @@
         </div>
     </div>
 
+    <script src="supabase.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

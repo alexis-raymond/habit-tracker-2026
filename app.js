@@ -151,14 +151,21 @@ class StorageManager {
         return data.completions[date] || {};
     }
 
-    toggleCompletion(habitId, date) {
+    async toggleCompletion(habitId, date) {
         const data = this.getData();
         if (!data.completions[date]) {
             data.completions[date] = {};
         }
         data.completions[date][habitId] = !data.completions[date][habitId];
+        const isCompleted = data.completions[date][habitId];
+
+        // Save to localStorage first (offline-first)
         this.saveData(data);
-        return data.completions[date][habitId];
+
+        // Queue sync to Supabase
+        await SyncManager.queueChange(habitId, date, isCompleted);
+
+        return isCompleted;
     }
 
     getHabits() {
@@ -169,6 +176,22 @@ class StorageManager {
     getAllCompletions() {
         const data = this.getData();
         return data.completions;
+    }
+
+    async loadFromSupabase() {
+        const result = await DatabaseService.loadCompletions();
+        if (result.success) {
+            const data = this.getData();
+            data.completions = result.data;
+            this.saveData(data);
+            return true;
+        }
+        return false;
+    }
+
+    async syncToSupabase() {
+        const data = this.getData();
+        return await DatabaseService.syncCompletions(data.completions);
     }
 
     getTheme() {
@@ -376,14 +399,66 @@ class HabitTrackerApp {
         this.calendarDate = new Date();
         this.calendarMode = 'month';
         this.selectedHabitId = null;
+        this.isAuthenticated = false;
+        this.user = null;
 
         this.init();
     }
 
-    init() {
+    async init() {
         this.initializeTheme();
+        await this.initializeAuth();
         this.setupEventListeners();
+    }
+
+    async initializeAuth() {
+        // Check for existing session
+        const session = await AuthService.getSession();
+
+        if (session) {
+            this.user = session.user;
+            this.isAuthenticated = true;
+            await this.onAuthSuccess();
+        } else {
+            // Show auth modal
+            this.showAuthModal();
+        }
+
+        // Listen for auth state changes
+        AuthService.onAuthStateChange(async (event, session) => {
+            if (event === 'SIGNED_IN' && session) {
+                this.user = session.user;
+                this.isAuthenticated = true;
+                await this.onAuthSuccess();
+            } else if (event === 'SIGNED_OUT') {
+                this.user = null;
+                this.isAuthenticated = false;
+                this.showAuthModal();
+            }
+        });
+    }
+
+    async onAuthSuccess() {
+        // Hide auth modal
+        this.hideAuthModal();
+
+        // Show sign out button
+        document.getElementById('signout-btn').style.display = 'flex';
+
+        // Load data from Supabase
+        await this.storage.loadFromSupabase();
+
+        // Render the app
         this.render();
+    }
+
+    showAuthModal() {
+        document.getElementById('auth-modal').classList.add('active');
+        document.getElementById('signout-btn').style.display = 'none';
+    }
+
+    hideAuthModal() {
+        document.getElementById('auth-modal').classList.remove('active');
     }
 
     initializeTheme() {
@@ -403,6 +478,28 @@ class HabitTrackerApp {
     }
 
     setupEventListeners() {
+        // Auth buttons
+        document.getElementById('signin-btn')?.addEventListener('click', async () => {
+            await this.handleSignIn();
+        });
+
+        document.getElementById('signup-btn')?.addEventListener('click', async () => {
+            await this.handleSignUp();
+        });
+
+        document.getElementById('signout-btn')?.addEventListener('click', async () => {
+            if (confirm('Are you sure you want to sign out?')) {
+                await AuthService.signOut();
+            }
+        });
+
+        // Enter key in password field
+        document.getElementById('auth-password')?.addEventListener('keypress', async (e) => {
+            if (e.key === 'Enter') {
+                await this.handleSignIn();
+            }
+        });
+
         // Theme toggle
         document.getElementById('theme-toggle')?.addEventListener('click', () => {
             this.toggleTheme();
@@ -458,6 +555,66 @@ class HabitTrackerApp {
                 this.closeModal();
             }
         });
+    }
+
+    async handleSignIn() {
+        const email = document.getElementById('auth-email').value.trim();
+        const password = document.getElementById('auth-password').value;
+        const errorEl = document.getElementById('auth-error');
+        const successEl = document.getElementById('auth-success');
+
+        errorEl.style.display = 'none';
+        successEl.style.display = 'none';
+
+        if (!email || !password) {
+            errorEl.textContent = 'Please enter both email and password';
+            errorEl.style.display = 'block';
+            return;
+        }
+
+        const result = await AuthService.signIn(email, password);
+        if (!result.success) {
+            errorEl.textContent = result.error || 'Failed to sign in';
+            errorEl.style.display = 'block';
+        }
+    }
+
+    async handleSignUp() {
+        console.log('handleSignUp called');
+        const email = document.getElementById('auth-email').value.trim();
+        const password = document.getElementById('auth-password').value;
+        const errorEl = document.getElementById('auth-error');
+        const successEl = document.getElementById('auth-success');
+
+        console.log('Email:', email, 'Password length:', password.length);
+
+        errorEl.style.display = 'none';
+        successEl.style.display = 'none';
+
+        if (!email || !password) {
+            errorEl.textContent = 'Please enter both email and password';
+            errorEl.style.display = 'block';
+            return;
+        }
+
+        if (password.length < 6) {
+            errorEl.textContent = 'Password must be at least 6 characters';
+            errorEl.style.display = 'block';
+            return;
+        }
+
+        console.log('Calling AuthService.signUp...');
+        const result = await AuthService.signUp(email, password);
+        console.log('SignUp result:', result);
+
+        if (result.success) {
+            successEl.textContent = 'Account created! Check your email to confirm, then sign in.';
+            successEl.style.display = 'block';
+            document.getElementById('auth-password').value = '';
+        } else {
+            errorEl.textContent = result.error || 'Failed to create account';
+            errorEl.style.display = 'block';
+        }
     }
 
     toggleTheme() {
@@ -573,10 +730,10 @@ class HabitTrackerApp {
         return habitCard;
     }
 
-    handleHabitToggle(checkbox) {
+    async handleHabitToggle(checkbox) {
         const habitId = checkbox.dataset.habitId;
         const date = checkbox.dataset.date;
-        const isCompleted = this.storage.toggleCompletion(habitId, date);
+        const isCompleted = await this.storage.toggleCompletion(habitId, date);
 
         const habitCard = checkbox.closest('.habit-card');
         habitCard.classList.toggle('completed', isCompleted);
