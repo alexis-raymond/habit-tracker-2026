@@ -3,136 +3,213 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Habit Tracker 2026</title>
+    <title>Atoms - Habit Tracker</title>
     <link rel="stylesheet" href="styles.css">
-    <!-- Supabase Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
     <!-- Auth Modal -->
-    <div id="auth-modal" class="modal auth-modal active">
-        <div class="modal-content auth-content">
-            <div class="auth-header">
-                <h2>Habit Tracker 2026</h2>
-                <p class="auth-subtitle">Sign in to sync your habits across all devices</p>
+    <div id="auth-modal" class="modal active">
+        <div class="auth-content">
+            <div class="auth-logo">
+                <div class="logo-icon"></div>
+                <h1>Atoms.</h1>
             </div>
+            <p class="auth-subtitle">Build better habits, one atom at a time</p>
 
-            <div id="auth-form">
-                <input type="email" id="auth-email" placeholder="Email" class="auth-input" autocomplete="email">
-                <input type="password" id="auth-password" placeholder="Password" class="auth-input" autocomplete="current-password">
+            <div class="auth-form">
+                <input type="email" id="auth-email" placeholder="Email" autocomplete="email">
+                <input type="password" id="auth-password" placeholder="Password" autocomplete="current-password">
 
-                <button id="signin-btn" class="auth-btn">Sign In</button>
-                <button id="signup-btn" class="auth-btn-secondary">Create Account</button>
+                <button id="signin-btn" class="btn-primary">Sign In</button>
+                <button id="signup-btn" class="btn-secondary">Create Account</button>
 
                 <p id="auth-error" class="auth-error" style="display: none;"></p>
                 <p id="auth-success" class="auth-success" style="display: none;"></p>
             </div>
-
-            <p class="auth-note">Your data will be securely stored and synced across all your devices</p>
         </div>
     </div>
 
-    <div class="app-container">
+    <!-- Main App -->
+    <div id="app" class="app" style="display: none;">
         <!-- Header -->
         <header class="header">
-            <div class="header-content">
-                <h1 class="logo">Habit Tracker</h1>
-                <div class="header-actions">
-                    <button id="theme-toggle" class="icon-btn" aria-label="Toggle dark mode">
-                        <span class="theme-icon">🌙</span>
-                    </button>
-                    <button id="signout-btn" class="icon-btn" aria-label="Sign out" style="display: none;">
-                        <span>🚪</span>
-                    </button>
-                    <div class="view-toggle">
-                        <button class="view-btn active" data-view="today">Today</button>
-                        <button class="view-btn" data-view="routines">Routines</button>
-                        <button class="view-btn" data-view="calendar">Calendar</button>
-                        <button class="view-btn" data-view="stats">Stats</button>
-                    </div>
-                </div>
-            </div>
+            <div class="profile-icon"></div>
+            <button id="add-habit-btn" class="add-habit-btn">
+                <span>+</span>
+                <span>Habits</span>
+            </button>
         </header>
 
-        <!-- Today View -->
-        <main class="main-content">
-            <div id="today-view" class="view active">
-                <div class="date-header">
-                    <div class="date-navigation">
-                        <button id="prev-day" class="nav-btn-small">←</button>
-                        <h2 id="current-date"></h2>
-                        <button id="next-day" class="nav-btn-small">→</button>
+        <!-- Week Navigation -->
+        <div class="week-nav" id="week-nav">
+            <!-- Dynamically populated -->
+        </div>
+
+        <!-- Compact View Toggle -->
+        <div class="view-controls">
+            <button class="help-btn">?</button>
+            <div class="compact-toggle">
+                <span>Compact View</span>
+                <label class="toggle">
+                    <input type="checkbox" id="compact-view-toggle">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Habits List -->
+        <div id="habits-container" class="habits-container">
+            <!-- Onboarding Pebble (shown when no habits exist) -->
+            <div id="onboarding-pebble" class="onboarding-pebble" style="display: none;">
+                <div class="onboarding-content">
+                    <div class="onboarding-logo">
+                        <div class="logo-icon-large"></div>
                     </div>
-                    <p id="streak-info"></p>
-                </div>
-                <div id="habits-list" class="habits-list">
-                    <!-- Habits will be dynamically inserted here -->
-                </div>
-            </div>
+                    <h2>Atoms.</h2>
+                    <p class="onboarding-instruction">Press and hold the habit pebble below to get started</p>
 
-            <!-- Routines View -->
-            <div id="routines-view" class="view">
-                <div class="routines-header">
-                    <h2>Your Routines</h2>
-                    <p class="subtitle">Grouped habits that help you build consistent patterns</p>
-                </div>
-                <div id="routines-list" class="routines-list">
-                    <!-- Routines will be dynamically inserted here -->
-                </div>
-            </div>
-
-            <!-- Calendar View -->
-            <div id="calendar-view" class="view">
-                <div class="calendar-controls">
-                    <button id="prev-period" class="nav-btn">←</button>
-                    <div class="period-selector">
-                        <select id="calendar-mode">
-                            <option value="week">Week</option>
-                            <option value="month" selected>Month</option>
-                            <option value="year">Year</option>
-                        </select>
-                        <button id="today-btn" class="today-btn">Today</button>
+                    <div class="first-habit-pebble">
+                        <div class="streak-badge">⚡<span>0</span></div>
+                        <h3>I will<br>take action</h3>
+                        <p class="identity-text">so that I can become<br><span>the type of person I want to be</span></p>
                     </div>
-                    <button id="next-period" class="nav-btn">→</button>
-                </div>
 
-                <div class="habit-selector">
-                    <select id="selected-habit">
-                        <option value="">Select a habit to view</option>
-                        <option value="__all__">🔥 All Habits (Heat Map)</option>
-                        <option value="__routine__morning">☀️ Morning Routine</option>
-                        <option value="__routine__evening">🌙 Evening Routine</option>
-                        <option value="__routine__connections">❤️ Connections</option>
-                    </select>
-                </div>
-
-                <div id="calendar-display" class="calendar-display">
-                    <!-- Calendar will be dynamically inserted here -->
+                    <p class="press-hold-text">PRESS AND HOLD TO GET STARTED</p>
                 </div>
             </div>
 
-            <!-- Stats View -->
-            <div id="stats-view" class="view">
-                <div class="stats-header">
-                    <h2>Your Progress</h2>
-                    <p class="subtitle">Insights and achievements from your habit journey</p>
-                </div>
-                <div id="stats-content" class="stats-content">
-                    <!-- Stats will be dynamically inserted here -->
-                </div>
-            </div>
-        </main>
+            <!-- Habits will be dynamically inserted here -->
+        </div>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <button class="nav-btn active" data-view="home">
+                <span class="nav-icon">●</span>
+                <span>Home</span>
+            </button>
+            <button class="nav-btn" data-view="progress">
+                <span class="nav-icon">▌▌▌</span>
+                <span>Progress</span>
+            </button>
+            <button class="nav-btn" data-view="mindset">
+                <span class="nav-icon">📖</span>
+                <span>Mindset</span>
+            </button>
+            <button class="nav-btn" data-view="focus">
+                <span class="nav-icon">⏱</span>
+                <span>Focus</span>
+            </button>
+        </nav>
     </div>
 
-    <!-- Past Day Edit Modal -->
-    <div id="edit-modal" class="modal">
-        <div class="modal-content">
+    <!-- Create Habit Modal -->
+    <div id="create-habit-modal" class="modal">
+        <div class="modal-content create-habit-content">
             <div class="modal-header">
-                <h3 id="modal-date-title"></h3>
-                <button id="close-modal" class="close-btn">×</button>
+                <h2>DEFINE YOUR HABIT</h2>
+                <button class="close-btn">✓</button>
             </div>
-            <div id="modal-habits-list" class="modal-habits-list">
-                <!-- Past day habits will be inserted here -->
+
+            <div class="habit-statement">
+                <p class="statement-text">
+                    I will <input type="text" id="habit-action" class="statement-input" placeholder="habit">,
+                    <input type="text" id="habit-time-location" class="statement-input" placeholder="time/location">
+                    so that I can become <input type="text" id="habit-identity" class="statement-input" placeholder="type of person I want to be">
+                </p>
+            </div>
+
+            <div class="two-minute-section">
+                <h3>What's the two-minute version of what you want to do?</h3>
+                <p class="help-text">Select from below or type your own</p>
+
+                <div class="suggestions">
+                    <button class="suggestion-btn">put on my running shoes</button>
+                    <button class="suggestion-btn">take a deep breath</button>
+                </div>
+
+                <input type="text" id="habit-name" class="habit-name-input" placeholder="habit">
+            </div>
+
+            <button id="continue-to-settings-btn" class="btn-primary btn-next">→</button>
+        </div>
+    </div>
+
+    <!-- Habit Settings Modal -->
+    <div id="habit-settings-modal" class="modal">
+        <div class="modal-content habit-settings-content">
+            <div class="modal-header">
+                <button class="back-btn">←</button>
+                <h2>HABIT SETTINGS</h2>
+                <button class="close-btn">✕</button>
+            </div>
+
+            <div class="habit-statement-display">
+                <p>I will <span id="display-action"></span>, <span id="display-time-location"></span> so that I can become <span id="display-identity"></span></p>
+            </div>
+
+            <div class="setting-section">
+                <h3>Repeat</h3>
+                <p class="setting-hint">Choose at least 1 day</p>
+                <div class="day-selector">
+                    <button class="day-btn" data-day="0">S</button>
+                    <button class="day-btn" data-day="1">M</button>
+                    <button class="day-btn" data-day="2">T</button>
+                    <button class="day-btn" data-day="3">W</button>
+                    <button class="day-btn" data-day="4">T</button>
+                    <button class="day-btn" data-day="5">F</button>
+                    <button class="day-btn" data-day="6">S</button>
+                </div>
+            </div>
+
+            <div class="setting-section">
+                <h3>Daily goal</h3>
+                <div class="goal-inputs">
+                    <input type="number" id="goal-amount" value="1" min="1">
+                    <select id="goal-unit">
+                        <option value="time">time</option>
+                        <option value="reps">reps</option>
+                        <option value="minutes">minutes</option>
+                        <option value="hours">hours</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="setting-section">
+                <h3>Habit time</h3>
+                <div class="time-inputs">
+                    <input type="time" id="habit-time" value="08:00">
+                    <button class="add-time-btn">+ Add</button>
+                </div>
+            </div>
+
+            <div class="setting-section">
+                <div class="reminder-toggle">
+                    <span>Send reminder</span>
+                    <label class="toggle">
+                        <input type="checkbox" id="send-reminder" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <button id="create-habit-btn" class="btn-primary btn-create">Create habit</button>
+        </div>
+    </div>
+
+    <!-- Habit Detail Modal -->
+    <div id="habit-detail-modal" class="modal">
+        <div class="modal-content habit-detail-content">
+            <div class="modal-header">
+                <div class="detail-actions">
+                    <button class="share-btn">Share ↑</button>
+                    <button class="menu-btn">⋯</button>
+                    <button class="close-btn">✕</button>
+                </div>
+            </div>
+
+            <div id="habit-detail-body">
+                <!-- Dynamically populated -->
             </div>
         </div>
     </div>

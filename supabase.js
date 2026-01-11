@@ -79,186 +79,109 @@ class AuthService {
 // ============================================================================
 
 class DatabaseService {
-    // Sync completions to Supabase
-    static async syncCompletions(completions) {
-        const user = await AuthService.getUser();
-        if (!user) return { success: false, error: 'Not authenticated' };
-
-        try {
-            // Convert completions object to array of records
-            const records = [];
-            for (const [date, habits] of Object.entries(completions)) {
-                for (const [habitId, completed] of Object.entries(habits)) {
-                    if (completed) {
-                        records.push({
-                            user_id: user.id,
-                            habit_id: habitId,
-                            date: date,
-                            completed: true
-                        });
-                    }
-                }
-            }
-
-            // Upsert all records
-            if (records.length > 0) {
-                const { error } = await supabaseClient
-                    .from('completions')
-                    .upsert(records, {
-                        onConflict: 'user_id,habit_id,date',
-                        ignoreDuplicates: false
-                    });
-
-                if (error) throw error;
-            }
-
-            return { success: true };
-        } catch (error) {
-            console.error('Sync error:', error);
-            return { success: false, error: error.message };
-        }
-    }
-
-    // Load completions from Supabase
-    static async loadCompletions() {
+    // Load all habits for the user
+    static async loadHabits() {
         const user = await AuthService.getUser();
         if (!user) return { success: false, error: 'Not authenticated' };
 
         try {
             const { data, error } = await supabaseClient
-                .from('completions')
+                .from('habits')
                 .select('*')
-                .eq('user_id', user.id);
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
 
             if (error) throw error;
 
-            // Convert array of records back to completions object
-            const completions = {};
-            data.forEach(record => {
-                if (!completions[record.date]) {
-                    completions[record.date] = {};
-                }
-                completions[record.date][record.habit_id] = record.completed;
-            });
+            // Parse JSON fields
+            const habits = (data || []).map(habit => ({
+                ...habit,
+                days: JSON.parse(habit.days || '[]'),
+                completions: JSON.parse(habit.completions || '{}')
+            }));
 
-            return { success: true, data: completions };
+            return { success: true, data: habits };
         } catch (error) {
-            console.error('Load error:', error);
+            console.error('Load habits error:', error);
             return { success: false, error: error.message };
         }
     }
 
-    // Toggle a single completion
+    // Save a new or updated habit
+    static async saveHabit(habit) {
+        const user = await AuthService.getUser();
+        if (!user) return { success: false, error: 'Not authenticated' };
+
+        try {
+            const habitData = {
+                user_id: user.id,
+                id: habit.id,
+                name: habit.name,
+                action: habit.action,
+                time_location: habit.timeLocation,
+                identity: habit.identity,
+                days: JSON.stringify(habit.days),
+                goal_amount: habit.goalAmount,
+                goal_unit: habit.goalUnit,
+                habit_time: habit.habitTime,
+                send_reminder: habit.sendReminder,
+                completions: JSON.stringify(habit.completions || {}),
+                created_at: habit.createdAt || new Date().toISOString()
+            };
+
+            const { error } = await supabaseClient
+                .from('habits')
+                .upsert(habitData, {
+                    onConflict: 'user_id,id'
+                });
+
+            if (error) throw error;
+
+            return { success: true };
+        } catch (error) {
+            console.error('Save habit error:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // Toggle a completion for a habit
     static async toggleCompletion(habitId, date, completed) {
         const user = await AuthService.getUser();
         if (!user) return { success: false, error: 'Not authenticated' };
 
         try {
+            // Load the habit
+            const { data: habitData, error: loadError } = await supabaseClient
+                .from('habits')
+                .select('completions')
+                .eq('user_id', user.id)
+                .eq('id', habitId)
+                .single();
+
+            if (loadError) throw loadError;
+
+            // Update completions
+            const completions = JSON.parse(habitData.completions || '{}');
             if (completed) {
-                // Insert or update
-                const { error } = await supabaseClient
-                    .from('completions')
-                    .upsert({
-                        user_id: user.id,
-                        habit_id: habitId,
-                        date: date,
-                        completed: true
-                    }, {
-                        onConflict: 'user_id,habit_id,date'
-                    });
-
-                if (error) throw error;
+                completions[date] = true;
             } else {
-                // Delete
-                const { error } = await supabaseClient
-                    .from('completions')
-                    .delete()
-                    .eq('user_id', user.id)
-                    .eq('habit_id', habitId)
-                    .eq('date', date);
-
-                if (error) throw error;
+                delete completions[date];
             }
+
+            // Save back
+            const { error: updateError } = await supabaseClient
+                .from('habits')
+                .update({ completions: JSON.stringify(completions) })
+                .eq('user_id', user.id)
+                .eq('id', habitId);
+
+            if (updateError) throw updateError;
 
             return { success: true };
         } catch (error) {
-            console.error('Toggle error:', error);
+            console.error('Toggle completion error:', error);
             return { success: false, error: error.message };
         }
     }
 }
 
-// ============================================================================
-// OFFLINE-FIRST SYNC MANAGER
-// ============================================================================
-
-class SyncManager {
-    static pendingChanges = [];
-    static isOnline = navigator.onLine;
-    static isSyncing = false;
-
-    static init() {
-        // Monitor online/offline status
-        window.addEventListener('online', () => {
-            this.isOnline = true;
-            this.processPendingChanges();
-        });
-
-        window.addEventListener('offline', () => {
-            this.isOnline = false;
-        });
-
-        // Sync on visibility change (user returns to tab)
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden && this.isOnline) {
-                this.processPendingChanges();
-            }
-        });
-    }
-
-    static async queueChange(habitId, date, completed) {
-        // Add to pending changes
-        this.pendingChanges.push({ habitId, date, completed, timestamp: Date.now() });
-
-        // Try to sync immediately if online
-        if (this.isOnline) {
-            await this.processPendingChanges();
-        }
-    }
-
-    static async processPendingChanges() {
-        if (this.isSyncing || this.pendingChanges.length === 0) return;
-
-        this.isSyncing = true;
-
-        try {
-            // Process each pending change
-            while (this.pendingChanges.length > 0) {
-                const change = this.pendingChanges[0];
-                const result = await DatabaseService.toggleCompletion(
-                    change.habitId,
-                    change.date,
-                    change.completed
-                );
-
-                if (result.success) {
-                    // Remove from queue if successful
-                    this.pendingChanges.shift();
-                } else {
-                    // Stop processing if we hit an error
-                    console.error('Failed to sync change:', result.error);
-                    break;
-                }
-            }
-        } finally {
-            this.isSyncing = false;
-        }
-    }
-
-    static getPendingCount() {
-        return this.pendingChanges.length;
-    }
-}
-
-// Initialize sync manager
-SyncManager.init();
