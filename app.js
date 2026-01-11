@@ -18,8 +18,8 @@ class AtomsApp {
     // ========================================================================
 
     async init() {
+        this.attachAuthListeners();
         await this.initializeAuth();
-        this.attachEventListeners();
     }
 
     async initializeAuth() {
@@ -44,6 +44,9 @@ class AtomsApp {
         document.getElementById('auth-modal').classList.remove('active');
         document.getElementById('app').style.display = 'block';
 
+        // Attach app event listeners after app is visible
+        this.attachAppListeners();
+
         await this.loadHabits();
         this.renderWeekNavigation();
         this.renderHabits();
@@ -60,11 +63,13 @@ class AtomsApp {
     // EVENT LISTENERS
     // ========================================================================
 
-    attachEventListeners() {
-        // Auth
+    attachAuthListeners() {
+        // Auth buttons - visible on auth modal
         document.getElementById('signin-btn').addEventListener('click', () => this.handleSignIn());
         document.getElementById('signup-btn').addEventListener('click', () => this.handleSignUp());
+    }
 
+    attachAppListeners() {
         // Add Habit
         document.getElementById('add-habit-btn').addEventListener('click', () => this.openCreateHabitModal());
 
